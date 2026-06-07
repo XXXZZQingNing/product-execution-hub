@@ -87,8 +87,9 @@ export default function App() {
       if (localDb) {
         setDb(localDb);
         setNotice('正在使用本地草稿，连接 GitHub 后可写入仓库');
+      } else {
+        setNotice('未连接 GitHub，可先使用本地草稿');
       }
-      setSettingsOpen(true);
       return;
     }
 
@@ -291,6 +292,16 @@ export default function App() {
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-5 py-2.5 text-sm font-semibold text-blue-700 shadow-sm backdrop-blur-md">
                 <Loader2 className="animate-spin" size={16} />
                 {saving ? '正在保存到 GitHub...' : '正在同步 GitHub 数据...'}
+              </div>
+            )}
+
+            {!config && (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                <p>首次使用需要连接 GitHub 仓库，才能把数据同步到云端。你也可以先关闭此提示，在本地创建草稿。</p>
+                <button className="btn btn-primary shrink-0" onClick={() => setSettingsOpen(true)}>
+                  <Settings size={16} />
+                  连接 GitHub
+                </button>
               </div>
             )}
 
