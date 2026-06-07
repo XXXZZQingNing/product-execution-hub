@@ -1,4 +1,4 @@
-import type { AppDb, GithubConfig, MediaAsset } from '../types';
+import type { AppDb, GithubConfig, MediaAsset, RepoRef } from '../types';
 
 const API_ROOT = 'https://api.github.com';
 export const DB_PATH = 'data/db.json';
@@ -60,6 +60,52 @@ export async function testGithubConnection(config: GithubConfig) {
   if (!response.ok) {
     const message = await response.text();
     throw new Error(`GitHub API ${response.status}: ${message}`);
+  }
+}
+
+export async function readDbPublic(ref: RepoRef): Promise<{ db: AppDb }> {
+  const response = await fetch(rawUrl(ref, DB_PATH));
+  if (!response.ok) {
+    if (response.status === 404) {
+      return { db: emptyDb() };
+    }
+    throw new Error(`读取数据失败 ${response.status}`);
+  }
+  return { db: (await response.json()) as AppDb };
+}
+
+export async function listMediaPublic(ref: RepoRef): Promise<MediaAsset[]> {
+  try {
+    const response = await fetch(
+      `${API_ROOT}/repos/${ref.owner}/${ref.repo}/contents/${MEDIA_DIR}?ref=${encodeURIComponent(ref.branch)}`,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      },
+    );
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [];
+      }
+      throw new Error(`读取媒体失败 ${response.status}`);
+    }
+    const files = (await response.json()) as GithubContentResponse[];
+    return files
+      .filter((file) => file.type === 'file')
+      .map((file) => ({
+        path: file.path,
+        name: file.name,
+        sha: file.sha,
+        downloadUrl: rawUrl(ref, file.path),
+        type: mediaType(file.name),
+      }));
+  } catch (error) {
+    if (String(error).includes('404')) {
+      return [];
+    }
+    throw error;
   }
 }
 
@@ -159,8 +205,8 @@ export async function deleteMedia(config: GithubConfig, asset: MediaAsset) {
   });
 }
 
-export function rawUrl(config: GithubConfig, path: string) {
-  return `https://raw.githubusercontent.com/${config.owner}/${config.repo}/${config.branch}/${path}`;
+export function rawUrl(ref: RepoRef, path: string) {
+  return `https://raw.githubusercontent.com/${ref.owner}/${ref.repo}/${ref.branch}/${path}`;
 }
 
 function fileToBase64(file: File) {

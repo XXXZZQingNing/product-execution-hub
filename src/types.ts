@@ -54,9 +54,12 @@ export type AppDb = {
   updatedAt: string;
 };
 
-export type GithubConfig = {
+export type RepoRef = {
   owner: string;
   repo: string;
   branch: string;
+};
+
+export type GithubConfig = RepoRef & {
   token: string;
 };

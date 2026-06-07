@@ -20,14 +20,21 @@ npm run dev
 3. 推送后 `.github/workflows/deploy.yml` 会自动构建并发布到 GitHub Pages。
 4. `vite.config.ts` 会在 GitHub Actions 中自动把站点路径设置为 `/<repo>/`。
 
-## 首次连接 GitHub
+## 访客只读与管理员编辑
 
-打开网站后，在连接弹窗中填写：
+网站内置了公开仓库地址，访客打开链接后可以直接浏览：
 
-- Owner：GitHub 用户名或组织名。
-- Repo：仓库名。
-- Branch：通常是 `main`。
-- Personal Access Token：需要具备该仓库 Contents 读写权限。
+- 开发者与产品清单
+- 执行方案与事项
+- 媒体库中的图片/视频
+
+访客**不需要**填写任何 GitHub 配置。
+
+只有管理员需要点击 **开启编辑**，填写具备 Contents 读写权限的 Personal Access Token 后，才能：
+
+- 新增/编辑/删除开发者、产品、执行方案
+- 上传/删除图片和视频
+- 自动保存到 GitHub 仓库
 
 建议使用 Fine-grained token，并仅授权目标仓库：
 
@@ -35,17 +42,6 @@ npm run dev
 - Metadata -> Read-only
 
 Token 会保存在当前浏览器的 `localStorage` 中。请勿在公共电脑上使用长期有效的 Token。
-
-## 本地草稿和初始数据
-
-未连接 GitHub 时，你在页面里创建的开发者、产品和执行方案会自动保存为当前浏览器的本地草稿。刷新页面后仍会恢复这些草稿数据。
-
-当你之后在页面里连接 GitHub 仓库时，网站会检测本地草稿：
-
-- 如果仓库里的 `data/db.json` 为空，会自动把本地草稿写入仓库，作为初始数据。
-- 如果仓库里已经有数据，会询问是否用本地草稿覆盖仓库数据；取消则读取仓库数据。
-
-注意：未连接 GitHub 时，图片/视频文件不能真正上传到仓库。可以先填写文字数据或使用外链；实际文件需要连接 GitHub 后上传到 `media/` 目录。
 
 ## 数据和媒体位置
 

@@ -29,24 +29,41 @@ import type {
   MediaAsset,
   Product,
   ReferenceLink,
+  RepoRef,
   TaskStatus,
 } from './types';
 import {
   deleteMedia,
   emptyDb,
   listMedia,
+  listMediaPublic,
   rawUrl,
   readDb,
+  readDbPublic,
   testGithubConnection,
   uploadMedia,
   writeDb,
 } from './lib/github';
+import { getPublicRepo } from './lib/publicRepo';
 
 type ModuleKey = 'products' | 'execution' | 'media';
 type ProductDraft = Omit<Product, 'id' | 'developerId' | 'createdAt'>;
+type PromptDialogState = {
+  title: string;
+  label: string;
+  defaultValue?: string;
+  confirmLabel?: string;
+  onSubmit: (value: string) => void;
+};
+type ConfirmDialogState = {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+};
 
 const CONFIG_KEY = 'product-execution-hub.github-config';
-const LOCAL_DB_KEY = 'product-execution-hub.local-db';
 const statuses: Array<{ key: TaskStatus; label: string }> = [
   { key: 'todo', label: '待办' },
   { key: 'doing', label: '进行中' },
@@ -65,37 +82,31 @@ const starterProductDraft = (): ProductDraft => ({
 });
 
 export default function App() {
+  const publicRepo = getPublicRepo();
   const [activeModule, setActiveModule] = useState<ModuleKey>('products');
   const [db, setDb] = useState<AppDb>(() => emptyDb());
   const [config, setConfig] = useState<GithubConfig | null>(null);
   const [selectedDeveloperId, setSelectedDeveloperId] = useState<string>('');
   const [selectedExecutionId, setSelectedExecutionId] = useState<string>('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [promptDialog, setPromptDialog] = useState<PromptDialogState | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
   const [productModal, setProductModal] = useState<{
     developerId: string;
     product?: Product;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState('未连接 GitHub');
+  const [notice, setNotice] = useState('正在加载公开数据...');
   const saveTimer = useRef<number | null>(null);
+  const canEdit = Boolean(config?.token);
 
   useEffect(() => {
-    const raw = localStorage.getItem(CONFIG_KEY);
-    if (!raw) {
-      const localDb = readLocalDb();
-      if (localDb) {
-        setDb(localDb);
-        setNotice('正在使用本地草稿，连接 GitHub 后可写入仓库');
-      } else {
-        setNotice('未连接 GitHub，可先使用本地草稿');
-      }
-      return;
+    const token = readStoredToken();
+    if (token) {
+      setConfig({ ...publicRepo, token });
     }
-
-    const parsed = JSON.parse(raw) as GithubConfig;
-    setConfig(parsed);
-    void loadRemote(parsed);
+    void loadPublicData(Boolean(token));
   }, []);
 
   useEffect(() => {
@@ -116,38 +127,47 @@ export default function App() {
     }
   }, [db.executions, selectedExecutionId]);
 
-  async function loadRemote(nextConfig = config) {
-    if (!nextConfig) {
-      const localDb = readLocalDb();
-      if (localDb) {
-        setDb(localDb);
-        setNotice('已从本地草稿恢复数据');
-      } else {
-        setNotice('未连接 GitHub，也没有本地草稿');
-      }
-      return;
-    }
+  async function loadPublicData(editing = canEdit) {
     setLoading(true);
     try {
-      const result = await readDb(nextConfig);
+      const result = await readDbPublic(publicRepo);
       setDb(result.db);
-      setNotice(`已连接 ${nextConfig.owner}/${nextConfig.repo}`);
+      setNotice(
+        editing
+          ? `编辑模式：已加载 ${publicRepo.owner}/${publicRepo.repo}`
+          : `只读模式：访客可直接浏览 ${publicRepo.owner}/${publicRepo.repo}`,
+      );
     } catch (error) {
       setNotice(errorMessage(error));
-      setSettingsOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadRemote() {
+    setLoading(true);
+    try {
+      const result = config?.token ? await readDb(config) : await readDbPublic(publicRepo);
+      setDb(result.db);
+      setNotice(
+        canEdit
+          ? `已同步 ${publicRepo.owner}/${publicRepo.repo} 的最新数据`
+          : `已刷新公开数据`,
+      );
+    } catch (error) {
+      setNotice(errorMessage(error));
     } finally {
       setLoading(false);
     }
   }
 
   async function persist(nextDb: AppDb) {
-    setDb(nextDb);
-    if (!config) {
-      saveLocalDb(nextDb);
-      setNotice('已保存为本地草稿，连接 GitHub 后可写入仓库');
+    if (!canEdit || !config?.token) {
+      setNotice('当前为只读模式，请填写 Token 后再编辑');
       return;
     }
 
+    setDb(nextDb);
     if (saveTimer.current) {
       window.clearTimeout(saveTimer.current);
     }
@@ -168,38 +188,27 @@ export default function App() {
     }, 650);
   }
 
-  async function connectAndSync(nextConfig: GithubConfig) {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(nextConfig));
+  function askPrompt(options: Omit<PromptDialogState, 'onSubmit'> & { onSubmit: (value: string) => void }) {
+    setPromptDialog(options);
+  }
+
+  function askConfirm(options: Omit<ConfirmDialogState, 'onConfirm'> & { onConfirm: () => void }) {
+    setConfirmDialog(options);
+  }
+
+  async function connectWithToken(token: string) {
+    const nextConfig: GithubConfig = { ...publicRepo, token: token.trim() };
+    if (!nextConfig.token) return;
+
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ token: nextConfig.token }));
     setConfig(nextConfig);
     setSettingsOpen(false);
     setLoading(true);
 
     try {
-      const localDb = readLocalDb() ?? db;
       const remote = await readDb(nextConfig);
-      const shouldSeedRemote =
-        hasDbContent(localDb) &&
-        (!hasDbContent(remote.db) ||
-          window.confirm('检测到 GitHub 仓库已有数据。是否用当前本地草稿覆盖仓库里的 data/db.json？选择“取消”则读取仓库数据。'));
-
-      if (shouldSeedRemote) {
-        const saved = await writeDb(nextConfig, localDb);
-        setDb(saved);
-        saveLocalDb(saved);
-        setNotice(
-          hasDbContent(remote.db)
-            ? '本地草稿已覆盖 GitHub 仓库数据'
-            : '本地草稿已写入空仓库，作为初始数据保存',
-        );
-      } else {
-        setDb(remote.db);
-        saveLocalDb(remote.db);
-        setNotice(
-          hasDbContent(remote.db)
-            ? `已连接 ${nextConfig.owner}/${nextConfig.repo} 并读取仓库数据`
-            : `已连接空仓库 ${nextConfig.owner}/${nextConfig.repo}，创建数据后会自动保存`,
-        );
-      }
+      setDb(remote.db);
+      setNotice(`编辑模式已开启：${publicRepo.owner}/${publicRepo.repo}`);
     } catch (error) {
       setNotice(errorMessage(error));
       setSettingsOpen(true);
@@ -256,9 +265,12 @@ export default function App() {
                 GitHub 连接
               </div>
               <p className="line-clamp-2 text-xs leading-relaxed text-slate-500">{notice}</p>
+              <p className="mt-2 text-xs font-semibold text-slate-600">
+                {canEdit ? '编辑模式' : '只读模式'}
+              </p>
               <button className="btn btn-secondary mt-4 w-full text-sm" onClick={() => setSettingsOpen(true)}>
                 <Settings size={15} />
-                连接设置
+                {canEdit ? '编辑 Token' : '开启编辑'}
               </button>
             </div>
           </div>
@@ -295,50 +307,86 @@ export default function App() {
               </div>
             )}
 
-            {!config && (
-              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-                <p>首次使用需要连接 GitHub 仓库，才能把数据同步到云端。你也可以先关闭此提示，在本地创建草稿。</p>
+            {!canEdit && (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+                <p>当前为只读浏览模式，访客无需配置即可查看内容。只有管理员填写 Token 后才能新增、编辑和上传资料。</p>
                 <button className="btn btn-primary shrink-0" onClick={() => setSettingsOpen(true)}>
                   <Settings size={16} />
-                  连接 GitHub
+                  开启编辑
                 </button>
               </div>
             )}
 
             {activeModule === 'products' && (
               <ProductsModule
-                config={config}
+                publicRepo={publicRepo}
+                canEdit={canEdit}
                 db={db}
                 selectedDeveloper={selectedDeveloper}
                 selectedDeveloperId={selectedDeveloperId}
                 onSelectDeveloper={setSelectedDeveloperId}
                 onPersist={persist}
                 onOpenProductModal={setProductModal}
+                onAskPrompt={askPrompt}
+                onAskConfirm={askConfirm}
               />
             )}
             {activeModule === 'execution' && (
               <ExecutionModule
+                canEdit={canEdit}
                 db={db}
                 selectedExecution={selectedExecution}
                 selectedExecutionId={selectedExecutionId}
                 onSelectExecution={setSelectedExecutionId}
                 onPersist={persist}
+                onAskPrompt={askPrompt}
+                onAskConfirm={askConfirm}
               />
             )}
-            {activeModule === 'media' && <MediaModule config={config} />}
+            {activeModule === 'media' && (
+              <MediaModule
+                publicRepo={publicRepo}
+                config={config}
+                canEdit={canEdit}
+                onAskConfirm={askConfirm}
+              />
+            )}
           </div>
         </main>
       </div>
 
       {settingsOpen && (
         <SettingsModal
-          initial={config}
+          publicRepo={publicRepo}
+          initialToken={config?.token ?? ''}
           onClose={() => setSettingsOpen(false)}
-          onSave={(nextConfig) => void connectAndSync(nextConfig)}
+          onSave={(token) => void connectWithToken(token)}
         />
       )}
 
-      {productModal && (
+      {promptDialog && (
+        <PromptModal
+          {...promptDialog}
+          onClose={() => setPromptDialog(null)}
+          onSubmit={(value) => {
+            promptDialog.onSubmit(value);
+            setPromptDialog(null);
+          }}
+        />
+      )}
+
+      {confirmDialog && (
+        <ConfirmModal
+          {...confirmDialog}
+          onClose={() => setConfirmDialog(null)}
+          onConfirm={() => {
+            confirmDialog.onConfirm();
+            setConfirmDialog(null);
+          }}
+        />
+      )}
+
+      {productModal && canEdit && (
         <ProductModal
           config={config}
           product={productModal.product}
@@ -358,59 +406,92 @@ export default function App() {
 }
 
 function ProductsModule({
-  config,
+  publicRepo,
+  canEdit,
   db,
   selectedDeveloper,
   selectedDeveloperId,
   onSelectDeveloper,
   onPersist,
   onOpenProductModal,
+  onAskPrompt,
+  onAskConfirm,
 }: {
-  config: GithubConfig | null;
+  publicRepo: RepoRef;
+  canEdit: boolean;
   db: AppDb;
   selectedDeveloper?: Developer;
   selectedDeveloperId: string;
   onSelectDeveloper: (id: string) => void;
   onPersist: (db: AppDb) => Promise<void>;
   onOpenProductModal: (payload: { developerId: string; product?: Product }) => void;
+  onAskPrompt: (options: PromptDialogState) => void;
+  onAskConfirm: (options: ConfirmDialogState) => void;
 }) {
   const products = db.products.filter((item) => item.developerId === selectedDeveloperId);
 
   function addDeveloper() {
-    const name = window.prompt('请输入开发者名称');
-    if (!name?.trim()) return;
-    const developer: Developer = {
-      id: newId(),
-      name: name.trim(),
-      note: '',
-      createdAt: now(),
-    };
-    onSelectDeveloper(developer.id);
-    void onPersist({ ...db, developers: [...db.developers, developer] });
+    onAskPrompt({
+      title: '新增开发者',
+      label: '开发者名称',
+      confirmLabel: '创建',
+      onSubmit: (name) => {
+        if (!name.trim()) return;
+        const developer: Developer = {
+          id: newId(),
+          name: name.trim(),
+          note: '',
+          createdAt: now(),
+        };
+        onSelectDeveloper(developer.id);
+        void onPersist({ ...db, developers: [...db.developers, developer] });
+      },
+    });
   }
 
   function renameDeveloper(developer: Developer) {
-    const name = window.prompt('修改开发者名称', developer.name);
-    if (!name?.trim()) return;
-    void onPersist({
-      ...db,
-      developers: db.developers.map((item) =>
-        item.id === developer.id ? { ...item, name: name.trim() } : item,
-      ),
+    onAskPrompt({
+      title: '重命名开发者',
+      label: '开发者名称',
+      defaultValue: developer.name,
+      confirmLabel: '保存',
+      onSubmit: (name) => {
+        if (!name.trim()) return;
+        void onPersist({
+          ...db,
+          developers: db.developers.map((item) =>
+            item.id === developer.id ? { ...item, name: name.trim() } : item,
+          ),
+        });
+      },
     });
   }
 
   function deleteDeveloper(developer: Developer) {
-    if (!window.confirm(`删除开发者「${developer.name}」及其所有产品？`)) return;
-    const developers = db.developers.filter((item) => item.id !== developer.id);
-    const products = db.products.filter((item) => item.developerId !== developer.id);
-    onSelectDeveloper(developers[0]?.id ?? '');
-    void onPersist({ ...db, developers, products });
+    onAskConfirm({
+      title: '删除开发者',
+      message: `确定删除开发者「${developer.name}」及其所有产品吗？`,
+      confirmLabel: '删除',
+      danger: true,
+      onConfirm: () => {
+        const developers = db.developers.filter((item) => item.id !== developer.id);
+        const nextProducts = db.products.filter((item) => item.developerId !== developer.id);
+        onSelectDeveloper(developers[0]?.id ?? '');
+        void onPersist({ ...db, developers, products: nextProducts });
+      },
+    });
   }
 
   function deleteProduct(product: Product) {
-    if (!window.confirm(`删除产品「${product.name}」？`)) return;
-    void onPersist({ ...db, products: db.products.filter((item) => item.id !== product.id) });
+    onAskConfirm({
+      title: '删除产品',
+      message: `确定删除产品「${product.name}」吗？`,
+      confirmLabel: '删除',
+      danger: true,
+      onConfirm: () => {
+        void onPersist({ ...db, products: db.products.filter((item) => item.id !== product.id) });
+      },
+    });
   }
 
   return (
@@ -421,9 +502,11 @@ function ProductsModule({
             <h3 className="text-lg font-bold text-slate-900">开发者</h3>
             <p className="text-sm font-medium text-slate-500">产品挂载在开发者下</p>
           </div>
-          <button className="btn btn-primary px-3.5 shadow-md" onClick={addDeveloper}>
-            <UserPlus size={16} />
-          </button>
+          {canEdit && (
+            <button className="btn btn-primary px-3.5 shadow-md" onClick={addDeveloper}>
+              <UserPlus size={16} />
+            </button>
+          )}
         </div>
         <div className="space-y-3">
           {db.developers.length === 0 && (
@@ -446,20 +529,22 @@ function ProductsModule({
                     {db.products.filter((item) => item.developerId === developer.id).length} 个产品
                   </p>
                 </div>
-                <div className="flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <IconButton label="重命名" onClick={(event) => {
-                    event.stopPropagation();
-                    renameDeveloper(developer);
-                  }}>
-                    <Pencil size={14} />
-                  </IconButton>
-                  <IconButton label="删除" danger onClick={(event) => {
-                    event.stopPropagation();
-                    deleteDeveloper(developer);
-                  }}>
-                    <Trash2 size={14} />
-                  </IconButton>
-                </div>
+                {canEdit && (
+                  <div className="flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconButton label="重命名" onClick={(event) => {
+                      event.stopPropagation();
+                      renameDeveloper(developer);
+                    }}>
+                      <Pencil size={14} />
+                    </IconButton>
+                    <IconButton label="删除" danger onClick={(event) => {
+                      event.stopPropagation();
+                      deleteDeveloper(developer);
+                    }}>
+                      <Trash2 size={14} />
+                    </IconButton>
+                  </div>
+                )}
               </div>
             </button>
           ))}
@@ -474,14 +559,16 @@ function ProductsModule({
               {selectedDeveloper?.name ?? '请选择或创建开发者'}
             </h3>
           </div>
-          <button
-            className="btn btn-primary shadow-md"
-            disabled={!selectedDeveloperId}
-            onClick={() => onOpenProductModal({ developerId: selectedDeveloperId })}
-          >
-            <PackagePlus size={18} />
-            新增产品
-          </button>
+          {canEdit && (
+            <button
+              className="btn btn-primary shadow-md"
+              disabled={!selectedDeveloperId}
+              onClick={() => onOpenProductModal({ developerId: selectedDeveloperId })}
+            >
+              <PackagePlus size={18} />
+              新增产品
+            </button>
+          )}
         </div>
 
         {products.length === 0 ? (
@@ -498,14 +585,14 @@ function ProductsModule({
                     product.referenceImages[0].match(/\.(mp4|mov|webm|m4v)$/i) ? (
                       <video
                         className="h-full w-full object-cover"
-                        src={resolveMediaUrl(config, product.referenceImages[0])}
+                        src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
                         muted
                         controls
                       />
                     ) : (
                       <img
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        src={resolveMediaUrl(config, product.referenceImages[0])}
+                        src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
                         alt={product.name}
                       />
                     )
@@ -514,14 +601,16 @@ function ProductsModule({
                       <ImagePlus size={40} strokeWidth={1.5} />
                     </div>
                   )}
-                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <IconButton label="编辑" onClick={() => onOpenProductModal({ developerId: selectedDeveloperId, product })}>
-                      <Pencil size={15} />
-                    </IconButton>
-                    <IconButton label="删除" danger onClick={() => deleteProduct(product)}>
-                      <Trash2 size={15} />
-                    </IconButton>
-                  </div>
+                  {canEdit && (
+                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <IconButton label="编辑" onClick={() => onOpenProductModal({ developerId: selectedDeveloperId, product })}>
+                        <Pencil size={15} />
+                      </IconButton>
+                      <IconButton label="删除" danger onClick={() => deleteProduct(product)}>
+                        <Trash2 size={15} />
+                      </IconButton>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col p-6">
                   <h4 className="text-xl font-bold text-slate-900">{product.name}</h4>
@@ -567,30 +656,42 @@ function ProductsModule({
 }
 
 function ExecutionModule({
+  canEdit,
   db,
   selectedExecution,
   selectedExecutionId,
   onSelectExecution,
   onPersist,
+  onAskPrompt,
+  onAskConfirm,
 }: {
+  canEdit: boolean;
   db: AppDb;
   selectedExecution?: ExecutionPlan;
   selectedExecutionId: string;
   onSelectExecution: (id: string) => void;
   onPersist: (db: AppDb) => Promise<void>;
+  onAskPrompt: (options: PromptDialogState) => void;
+  onAskConfirm: (options: ConfirmDialogState) => void;
 }) {
   function addExecution() {
-    const name = window.prompt('请输入执行方案名称');
-    if (!name?.trim()) return;
-    const execution: ExecutionPlan = {
-      id: newId(),
-      name: name.trim(),
-      plan: '',
-      tasks: [],
-      createdAt: now(),
-    };
-    onSelectExecution(execution.id);
-    void onPersist({ ...db, executions: [...db.executions, execution] });
+    onAskPrompt({
+      title: '新增执行方案',
+      label: '方案名称',
+      confirmLabel: '创建',
+      onSubmit: (name) => {
+        if (!name.trim()) return;
+        const execution: ExecutionPlan = {
+          id: newId(),
+          name: name.trim(),
+          plan: '',
+          tasks: [],
+          createdAt: now(),
+        };
+        onSelectExecution(execution.id);
+        void onPersist({ ...db, executions: [...db.executions, execution] });
+      },
+    });
   }
 
   function updateExecution(execution: ExecutionPlan) {
@@ -601,22 +702,35 @@ function ExecutionModule({
   }
 
   function deleteExecution(execution: ExecutionPlan) {
-    if (!window.confirm(`删除执行方案「${execution.name}」？`)) return;
-    const executions = db.executions.filter((item) => item.id !== execution.id);
-    onSelectExecution(executions[0]?.id ?? '');
-    void onPersist({ ...db, executions });
+    onAskConfirm({
+      title: '删除执行方案',
+      message: `确定删除执行方案「${execution.name}」吗？`,
+      confirmLabel: '删除',
+      danger: true,
+      onConfirm: () => {
+        const executions = db.executions.filter((item) => item.id !== execution.id);
+        onSelectExecution(executions[0]?.id ?? '');
+        void onPersist({ ...db, executions });
+      },
+    });
   }
 
   function addTask() {
     if (!selectedExecution) return;
-    const title = window.prompt('请输入事项名称');
-    if (!title?.trim()) return;
-    updateExecution({
-      ...selectedExecution,
-      tasks: [
-        ...selectedExecution.tasks,
-        { id: newId(), title: title.trim(), status: 'todo', feedback: '' },
-      ],
+    onAskPrompt({
+      title: '新增事项',
+      label: '事项名称',
+      confirmLabel: '添加',
+      onSubmit: (title) => {
+        if (!title.trim()) return;
+        updateExecution({
+          ...selectedExecution,
+          tasks: [
+            ...selectedExecution.tasks,
+            { id: newId(), title: title.trim(), status: 'todo', feedback: '' },
+          ],
+        });
+      },
     });
   }
 
@@ -629,10 +743,18 @@ function ExecutionModule({
   }
 
   function deleteTask(task: ExecutionTask) {
-    if (!selectedExecution || !window.confirm(`删除事项「${task.title}」？`)) return;
-    updateExecution({
-      ...selectedExecution,
-      tasks: selectedExecution.tasks.filter((item) => item.id !== task.id),
+    if (!selectedExecution) return;
+    onAskConfirm({
+      title: '删除事项',
+      message: `确定删除事项「${task.title}」吗？`,
+      confirmLabel: '删除',
+      danger: true,
+      onConfirm: () => {
+        updateExecution({
+          ...selectedExecution,
+          tasks: selectedExecution.tasks.filter((item) => item.id !== task.id),
+        });
+      },
     });
   }
 
@@ -658,9 +780,11 @@ function ExecutionModule({
             <h3 className="text-lg font-bold text-slate-900">执行方案</h3>
             <p className="text-sm font-medium text-slate-500">独立于开发者和产品</p>
           </div>
-          <button className="btn btn-primary px-3.5 shadow-md" onClick={addExecution}>
-            <Plus size={16} />
-          </button>
+          {canEdit && (
+            <button className="btn btn-primary px-3.5 shadow-md" onClick={addExecution}>
+              <Plus size={16} />
+            </button>
+          )}
         </div>
         <div className="space-y-3">
           {db.executions.length === 0 && (
@@ -683,14 +807,16 @@ function ExecutionModule({
                     {execution.tasks.filter((task) => task.status === 'done').length}/{execution.tasks.length} 已完成
                   </p>
                 </div>
-                <div className="opacity-0 transition-opacity group-hover:opacity-100">
-                  <IconButton label="删除" danger onClick={(event) => {
-                    event.stopPropagation();
-                    deleteExecution(execution);
-                  }}>
-                    <Trash2 size={14} />
-                  </IconButton>
-                </div>
+                {canEdit && (
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconButton label="删除" danger onClick={(event) => {
+                      event.stopPropagation();
+                      deleteExecution(execution);
+                    }}>
+                      <Trash2 size={14} />
+                    </IconButton>
+                  </div>
+                )}
               </div>
             </button>
           ))}
@@ -710,6 +836,7 @@ function ExecutionModule({
                     className="mt-2 w-full bg-transparent text-3xl font-extrabold tracking-tight text-slate-900 outline-none placeholder:text-slate-300"
                     value={selectedExecution.name}
                     placeholder="输入方案名称..."
+                    readOnly={!canEdit}
                     onChange={(event) => updateExecution({ ...selectedExecution, name: event.target.value })}
                   />
                 </div>
@@ -728,16 +855,19 @@ function ExecutionModule({
                 className="field mt-3 min-h-32 text-base leading-relaxed"
                 value={selectedExecution.plan}
                 placeholder="描述执行方案、策略、交付节奏或注意事项..."
+                readOnly={!canEdit}
                 onChange={(event) => updateExecution({ ...selectedExecution, plan: event.target.value })}
               />
             </div>
 
             <div className="flex items-center justify-between px-2">
               <h3 className="text-2xl font-extrabold text-slate-900">具体事项</h3>
-              <button className="btn btn-primary shadow-md" onClick={addTask}>
-                <Plus size={16} />
-                新增事项
-              </button>
+              {canEdit && (
+                <button className="btn btn-primary shadow-md" onClick={addTask}>
+                  <Plus size={16} />
+                  新增事项
+                </button>
+              )}
             </div>
 
             {selectedExecution.tasks.length === 0 ? (
@@ -751,26 +881,30 @@ function ExecutionModule({
                         className="min-w-0 flex-1 bg-transparent text-xl font-bold text-slate-900 outline-none placeholder:text-slate-300"
                         value={task.title}
                         placeholder="输入事项标题..."
+                        readOnly={!canEdit}
                         onChange={(event) => updateTask({ ...task, title: event.target.value })}
                       />
-                      <div className="flex items-center gap-2 opacity-60 transition-opacity group-hover:opacity-100">
-                        <button className="btn btn-secondary px-3 py-1.5 text-xs shadow-sm" onClick={() => moveTask(task.id, -1)} disabled={index === 0}>
-                          上移
-                        </button>
-                        <button className="btn btn-secondary px-3 py-1.5 text-xs shadow-sm" onClick={() => moveTask(task.id, 1)} disabled={index === selectedExecution.tasks.length - 1}>
-                          下移
-                        </button>
-                        <div className="ml-2">
-                          <IconButton label="删除" danger onClick={() => deleteTask(task)}>
-                            <Trash2 size={15} />
-                          </IconButton>
+                      {canEdit && (
+                        <div className="flex items-center gap-2 opacity-60 transition-opacity group-hover:opacity-100">
+                          <button className="btn btn-secondary px-3 py-1.5 text-xs shadow-sm" onClick={() => moveTask(task.id, -1)} disabled={index === 0}>
+                            上移
+                          </button>
+                          <button className="btn btn-secondary px-3 py-1.5 text-xs shadow-sm" onClick={() => moveTask(task.id, 1)} disabled={index === selectedExecution.tasks.length - 1}>
+                            下移
+                          </button>
+                          <div className="ml-2">
+                            <IconButton label="删除" danger onClick={() => deleteTask(task)}>
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                     <div className="mt-5 flex flex-wrap gap-2.5">
                       {statuses.map((status) => (
                         <button
                           key={status.key}
+                          disabled={!canEdit}
                           className={`rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200 ${
                             task.status === status.key
                               ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
@@ -787,6 +921,7 @@ function ExecutionModule({
                         className="field min-h-24 bg-slate-50/50 text-sm leading-relaxed focus:bg-white"
                         value={task.feedback}
                         placeholder="填写完成情况、问题反馈或下一步..."
+                        readOnly={!canEdit}
                         onChange={(event) => updateTask({ ...task, feedback: event.target.value })}
                       />
                     </div>
@@ -801,20 +936,30 @@ function ExecutionModule({
   );
 }
 
-function MediaModule({ config }: { config: GithubConfig | null }) {
+function MediaModule({
+  publicRepo,
+  config,
+  canEdit,
+  onAskConfirm,
+}: {
+  publicRepo: RepoRef;
+  config: GithubConfig | null;
+  canEdit: boolean;
+  onAskConfirm: (options: ConfirmDialogState) => void;
+}) {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   async function refresh() {
-    if (!config) {
-      setMessage('请先连接 GitHub 仓库后再管理媒体文件。本地草稿会保存文字数据，但不会保存实际图片/视频文件。');
-      return;
-    }
     setLoading(true);
     try {
-      setAssets(await listMedia(config));
-      setMessage('媒体库已同步');
+      setAssets(
+        canEdit && config?.token
+          ? await listMedia(config)
+          : await listMediaPublic(publicRepo),
+      );
+      setMessage(canEdit ? '媒体库已同步' : '已加载公开媒体库');
     } catch (error) {
       setMessage(errorMessage(error));
     } finally {
@@ -824,10 +969,10 @@ function MediaModule({ config }: { config: GithubConfig | null }) {
 
   useEffect(() => {
     void refresh();
-  }, [config?.owner, config?.repo, config?.branch]);
+  }, [publicRepo.owner, publicRepo.repo, publicRepo.branch, canEdit]);
 
   async function handleUpload(files: FileList | null) {
-    if (!config || !files?.length) return;
+    if (!canEdit || !config?.token || !files?.length) return;
     setLoading(true);
     try {
       for (const file of Array.from(files)) {
@@ -841,17 +986,27 @@ function MediaModule({ config }: { config: GithubConfig | null }) {
     }
   }
 
-  async function handleDelete(asset: MediaAsset) {
-    if (!config || !window.confirm(`删除媒体文件「${asset.name}」？`)) return;
-    setLoading(true);
-    try {
-      await deleteMedia(config, asset);
-      await refresh();
-    } catch (error) {
-      setMessage(errorMessage(error));
-    } finally {
-      setLoading(false);
-    }
+  function handleDelete(asset: MediaAsset) {
+    if (!canEdit || !config?.token) return;
+    onAskConfirm({
+      title: '删除媒体文件',
+      message: `确定删除媒体文件「${asset.name}」吗？`,
+      confirmLabel: '删除',
+      danger: true,
+      onConfirm: () => {
+        void (async () => {
+          setLoading(true);
+          try {
+            await deleteMedia(config, asset);
+            await refresh();
+          } catch (error) {
+            setMessage(errorMessage(error));
+          } finally {
+            setLoading(false);
+          }
+        })();
+      },
+    });
   }
 
   return (
@@ -865,11 +1020,13 @@ function MediaModule({ config }: { config: GithubConfig | null }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <label className="btn btn-primary cursor-pointer shadow-md">
-              <Upload size={16} />
-              上传文件
-              <input className="hidden" type="file" multiple onChange={(event) => void handleUpload(event.target.files)} />
-            </label>
+            {canEdit && (
+              <label className="btn btn-primary cursor-pointer shadow-md">
+                <Upload size={16} />
+                上传文件
+                <input className="hidden" type="file" multiple onChange={(event) => void handleUpload(event.target.files)} />
+              </label>
+            )}
             <button className="btn btn-secondary shadow-sm" onClick={() => void refresh()}>
               {loading ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <RefreshCw className="text-slate-500" size={16} />}
               刷新
@@ -902,9 +1059,11 @@ function MediaModule({ config }: { config: GithubConfig | null }) {
                   <button className="btn btn-secondary flex-1 text-sm shadow-sm" onClick={() => void navigator.clipboard.writeText(asset.downloadUrl)}>
                     复制链接
                   </button>
-                  <button className="btn btn-danger px-3 shadow-sm" onClick={() => void handleDelete(asset)}>
-                    <Trash2 size={15} />
-                  </button>
+                  {canEdit && (
+                    <button className="btn btn-danger px-3 shadow-sm" onClick={() => handleDelete(asset)}>
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
             </article>
@@ -1117,33 +1276,27 @@ function ProductModal({
 }
 
 function SettingsModal({
-  initial,
+  publicRepo,
+  initialToken,
   onClose,
   onSave,
 }: {
-  initial: GithubConfig | null;
+  publicRepo: RepoRef;
+  initialToken: string;
   onClose: () => void;
-  onSave: (config: GithubConfig) => void;
+  onSave: (token: string) => void;
 }) {
-  const [owner, setOwner] = useState(initial?.owner ?? '');
-  const [repo, setRepo] = useState(initial?.repo ?? '');
-  const [branch, setBranch] = useState(initial?.branch ?? 'main');
-  const [token, setToken] = useState(initial?.token ?? '');
+  const [token, setToken] = useState(initialToken);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState('');
 
-  const config: GithubConfig = {
-    owner: owner.trim(),
-    repo: repo.trim(),
-    branch: branch.trim() || 'main',
-    token: token.trim(),
-  };
+  const config: GithubConfig = { ...publicRepo, token: token.trim() };
 
   async function test() {
     setTesting(true);
     try {
       await testGithubConnection(config);
-      setMessage('连接成功。若仓库为空，保存数据时会自动创建 data/db.json。');
+      setMessage('Token 验证成功，可以开启编辑模式。');
     } catch (error) {
       setMessage(errorMessage(error));
     } finally {
@@ -1152,37 +1305,89 @@ function SettingsModal({
   }
 
   return (
-    <Modal title="连接 GitHub 仓库" onClose={onClose}>
+    <Modal title="开启编辑模式" onClose={onClose}>
       <div className="space-y-5">
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-5 py-4 text-sm leading-relaxed text-amber-800 shadow-sm backdrop-blur-sm">
-          需要一个具备 Contents 读写权限的 Personal Access Token。若仓库是公开仓库，数据与上传媒体也会公开可访问。
+        <div className="rounded-xl border border-blue-200 bg-blue-50/80 px-5 py-4 text-sm leading-relaxed text-blue-900 shadow-sm">
+          访客无需配置即可浏览内容。只有你填写具备 Contents 读写权限的 Token 后，才能新增、编辑和上传资料。
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label>
-            <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">Owner</span>
-            <input className="field" value={owner} onChange={(event) => setOwner(event.target.value)} placeholder="GitHub 用户名或组织" />
-          </label>
-          <label>
-            <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">Repo</span>
-            <input className="field" value={repo} onChange={(event) => setRepo(event.target.value)} placeholder="仓库名" />
-          </label>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
+          <p><span className="font-bold text-slate-700">Owner：</span>{publicRepo.owner}</p>
+          <p className="mt-1"><span className="font-bold text-slate-700">Repo：</span>{publicRepo.repo}</p>
+          <p className="mt-1"><span className="font-bold text-slate-700">Branch：</span>{publicRepo.branch}</p>
         </div>
-        <label className="block">
-          <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">Branch</span>
-          <input className="field" value={branch} onChange={(event) => setBranch(event.target.value)} placeholder="main" />
-        </label>
         <label className="block">
           <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">Personal Access Token</span>
           <input className="field font-mono" value={token} onChange={(event) => setToken(event.target.value)} type="password" placeholder="github_pat_..." />
         </label>
         {message && <p className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-medium text-slate-600">{message}</p>}
         <div className="flex flex-wrap justify-end gap-3 pt-4 border-t border-slate-100">
-          <button className="btn btn-secondary shadow-sm" onClick={test} disabled={testing}>
+          <button className="btn btn-secondary shadow-sm" onClick={test} disabled={testing || !token.trim()}>
             {testing ? <Loader2 className="animate-spin text-slate-400" size={16} /> : <CheckCircle2 className="text-slate-500" size={16} />}
-            测试连接
+            测试 Token
           </button>
           <button className="btn btn-secondary" onClick={onClose}>取消</button>
-          <button className="btn btn-primary shadow-md" onClick={() => onSave(config)}>保存并同步</button>
+          <button className="btn btn-primary shadow-md" onClick={() => onSave(token)} disabled={!token.trim()}>
+            开启编辑
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PromptModal({
+  title,
+  label,
+  defaultValue = '',
+  confirmLabel = '确定',
+  onClose,
+  onSubmit,
+}: PromptDialogState & { onClose: () => void; onSubmit: (value: string) => void }) {
+  const [value, setValue] = useState(defaultValue);
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="space-y-5">
+        <label className="block">
+          <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">{label}</span>
+          <input
+            className="field"
+            value={value}
+            autoFocus
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') onSubmit(value);
+            }}
+          />
+        </label>
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <button className="btn btn-secondary" onClick={onClose}>取消</button>
+          <button className="btn btn-primary shadow-md" onClick={() => onSubmit(value)} disabled={!value.trim()}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ConfirmModal({
+  title,
+  message,
+  confirmLabel = '确定',
+  danger,
+  onClose,
+  onConfirm,
+}: ConfirmDialogState & { onClose: () => void; onConfirm: () => void }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="space-y-5">
+        <p className="text-sm leading-relaxed text-slate-600">{message}</p>
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <button className="btn btn-secondary" onClick={onClose}>取消</button>
+          <button className={`btn shadow-md ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </Modal>
@@ -1292,36 +1497,26 @@ function IconButton({
   );
 }
 
-function resolveMediaUrl(config: GithubConfig | null, pathOrUrl: string) {
+function resolveMediaUrl(repo: RepoRef, pathOrUrl: string) {
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  return config ? rawUrl(config, pathOrUrl) : pathOrUrl;
+  return rawUrl(repo, pathOrUrl);
 }
 
-function shortName(value: string) {
-  return value.split('/').pop() || value;
-}
-
-function readLocalDb() {
-  const raw = localStorage.getItem(LOCAL_DB_KEY);
+function readStoredToken() {
+  const raw = localStorage.getItem(CONFIG_KEY);
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as AppDb;
+    const parsed = JSON.parse(raw) as { token?: string } & Partial<GithubConfig>;
+    return parsed.token?.trim() || null;
   } catch {
-    localStorage.removeItem(LOCAL_DB_KEY);
+    localStorage.removeItem(CONFIG_KEY);
     return null;
   }
 }
 
-function saveLocalDb(db: AppDb) {
-  localStorage.setItem(
-    LOCAL_DB_KEY,
-    JSON.stringify({ ...db, updatedAt: new Date().toISOString() }),
-  );
-}
-
-function hasDbContent(db: AppDb) {
-  return db.developers.length > 0 || db.products.length > 0 || db.executions.length > 0;
+function shortName(value: string) {
+  return value.split('/').pop() || value;
 }
 
 function errorMessage(error: unknown) {
