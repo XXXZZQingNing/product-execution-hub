@@ -13,7 +13,18 @@
       "createdAt": "2026-06-08T02:16:35.429Z"
     }
   ],
-  "products": [],
+  "products": [
+    {
+      "id": "0f579913-074b-4118-a061-42fe44b9285c",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "AR软件",
+      "requirements": "AR资源用户隔离；抠图改用云端API；AI模板背景改成原背景",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-08T03:08:27.921Z"
+    }
+  ],
   "executions": [],
-  "updatedAt": "2026-06-08T03:07:13.410Z"
+  "updatedAt": "2026-06-08T03:08:29.039Z"
 }
