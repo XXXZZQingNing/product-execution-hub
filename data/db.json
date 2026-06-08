@@ -1,6 +1,33 @@
 {
-  "developers": [],
-  "products": [],
+  "developers": [
+    {
+      "id": "ac5ca668-6062-40e3-bf18-0c234feb4208",
+      "name": "廖春雨",
+      "note": "",
+      "createdAt": "2026-06-08T01:38:46.082Z"
+    },
+    {
+      "id": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "张震",
+      "note": "",
+      "createdAt": "2026-06-08T02:16:35.429Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "a536162c-6d77-40a3-b347-a7fe784a3132",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "AR软件改进",
+      "requirements": "AR资源用户隔离；抠图采用云端；AI模板改回原背景",
+      "referenceImages": [
+        "media/1780885804540--.jpeg",
+        "media/1780885810245--.jpeg"
+      ],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-08T02:28:56.521Z"
+    }
+  ],
   "executions": [],
-  "updatedAt": "2026-06-07T00:00:00.000Z"
+  "updatedAt": "2026-06-08T02:33:59.423Z"
 }
