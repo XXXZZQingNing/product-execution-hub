@@ -1,4 +1,5 @@
 import type { AppDb, GithubConfig, MediaAsset, RepoRef } from '../types';
+import { normalizeDb } from './db';
 
 const API_ROOT = 'https://api.github.com';
 export const DB_PATH = 'data/db.json';
@@ -71,7 +72,7 @@ export async function readDbPublic(ref: RepoRef): Promise<{ db: AppDb }> {
     }
     throw new Error(`读取数据失败 ${response.status}`);
   }
-  return { db: (await response.json()) as AppDb };
+  return { db: normalizeDb(await response.json()) };
 }
 
 export async function listMediaPublic(ref: RepoRef): Promise<MediaAsset[]> {
@@ -118,7 +119,7 @@ export async function readDb(config: GithubConfig): Promise<{ db: AppDb; sha?: s
     const decoded = decodeURIComponent(
       escape(window.atob((file.content ?? '').replace(/\n/g, ''))),
     );
-    return { db: JSON.parse(decoded) as AppDb, sha: file.sha };
+    return { db: normalizeDb(JSON.parse(decoded)), sha: file.sha };
   } catch (error) {
     if (String(error).includes('GitHub API 404')) {
       return { db: emptyDb() };
