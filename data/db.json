@@ -23,8 +23,18 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-08T03:08:27.921Z"
+    },
+    {
+      "id": "48fb748e-2965-4440-8030-941f86136290",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "AI求签改造",
+      "requirements": "添加竖屏适用；打印画布调整允许打印2x6预设；允许添加和删除祈福签类型",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-08T03:10:30.016Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-08T03:08:29.039Z"
+  "updatedAt": "2026-06-08T03:10:31.135Z"
 }
