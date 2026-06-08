@@ -1,6 +1,13 @@
 {
-  "developers": [],
+  "developers": [
+    {
+      "id": "ac5ca668-6062-40e3-bf18-0c234feb4208",
+      "name": "廖春雨",
+      "note": "",
+      "createdAt": "2026-06-08T01:38:46.082Z"
+    }
+  ],
   "products": [],
   "executions": [],
-  "updatedAt": "2026-06-07T00:00:00.000Z"
+  "updatedAt": "2026-06-08T01:38:47.525Z"
 }
