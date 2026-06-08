@@ -37,6 +37,7 @@ export default function App() {
     saving,
     notice,
     canEdit,
+    remoteUpdateReady,
     loadRemote,
     persist,
     connectWithToken,
@@ -167,6 +168,16 @@ export default function App() {
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50/80 px-5 py-2.5 text-sm font-semibold text-blue-700 shadow-sm backdrop-blur-md">
                 <Loader2 className="animate-spin" size={16} />
                 {saving ? '正在保存到 GitHub...' : '正在同步 GitHub 数据...'}
+              </div>
+            )}
+
+            {remoteUpdateReady && (
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                <p>检测到 GitHub 仓库有同事的新更新。你可以立即同步，或继续编辑，保存时会自动合并双方数据。</p>
+                <button className="btn btn-primary shrink-0" onClick={() => void loadRemote()}>
+                  <RefreshCw size={16} />
+                  立即同步
+                </button>
               </div>
             )}
 

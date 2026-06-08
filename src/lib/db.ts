@@ -92,6 +92,40 @@ function normalizeExecution(value: unknown): ExecutionPlan | null {
   };
 }
 
+function mergeById<T extends { id: string }>(remoteItems: T[], localItems: T[]) {
+  const map = new Map<string, T>();
+  for (const item of remoteItems) map.set(item.id, item);
+  for (const item of localItems) map.set(item.id, item);
+  return Array.from(map.values());
+}
+
+function mergeExecutions(remoteItems: ExecutionPlan[], localItems: ExecutionPlan[]) {
+  const remoteMap = new Map(remoteItems.map((item) => [item.id, item]));
+  const localMap = new Map(localItems.map((item) => [item.id, item]));
+  const ids = new Set([...remoteMap.keys(), ...localMap.keys()]);
+
+  return Array.from(ids).map((id) => {
+    const remote = remoteMap.get(id);
+    const local = localMap.get(id);
+    if (remote && local) {
+      return {
+        ...local,
+        tasks: mergeById(remote.tasks, local.tasks),
+      };
+    }
+    return (local ?? remote)!;
+  });
+}
+
+export function mergeDb(remote: AppDb, local: AppDb): AppDb {
+  return {
+    developers: mergeById(remote.developers, local.developers),
+    products: mergeById(remote.products, local.products),
+    executions: mergeExecutions(remote.executions, local.executions),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function normalizeDb(value: unknown): AppDb {
   if (!isRecord(value)) return emptyDb();
 

@@ -1,5 +1,5 @@
 import type { AppDb, GithubConfig, MediaAsset, RepoRef } from '../types';
-import { normalizeDb } from './db';
+import { mergeDb, normalizeDb } from './db';
 
 const API_ROOT = 'https://api.github.com';
 export const DB_PATH = 'data/db.json';
@@ -65,7 +65,7 @@ export async function testGithubConnection(config: GithubConfig) {
 }
 
 export async function readDbPublic(ref: RepoRef): Promise<{ db: AppDb }> {
-  const response = await fetch(rawUrl(ref, DB_PATH));
+  const response = await fetch(rawUrl(ref, DB_PATH), { cache: 'no-store' });
   if (!response.ok) {
     if (response.status === 404) {
       return { db: emptyDb() };
@@ -128,22 +128,8 @@ export async function readDb(config: GithubConfig): Promise<{ db: AppDb; sha?: s
   }
 }
 
-export async function writeDb(config: GithubConfig, db: AppDb) {
-  let sha: string | undefined;
-  try {
-    const existing = await githubRequest<GithubContentResponse>(
-      config,
-      `${DB_PATH}?ref=${encodeURIComponent(config.branch)}`,
-    );
-    sha = existing.sha;
-  } catch (error) {
-    if (!String(error).includes('GitHub API 404')) {
-      throw error;
-    }
-  }
-
-  const nextDb = { ...db, updatedAt: new Date().toISOString() };
-  const content = window.btoa(unescape(encodeURIComponent(JSON.stringify(nextDb, null, 2))));
+async function putDb(config: GithubConfig, db: AppDb, sha?: string) {
+  const content = window.btoa(unescape(encodeURIComponent(JSON.stringify(db, null, 2))));
   await githubRequest(config, DB_PATH, {
     method: 'PUT',
     body: JSON.stringify({
@@ -153,7 +139,23 @@ export async function writeDb(config: GithubConfig, db: AppDb) {
       sha,
     }),
   });
-  return nextDb;
+}
+
+export async function writeDb(config: GithubConfig, db: AppDb) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remote = await readDb(config);
+    const nextDb = mergeDb(remote.db, db);
+    try {
+      await putDb(config, nextDb, remote.sha);
+      return nextDb;
+    } catch (error) {
+      const isConflict = String(error).includes('GitHub API 409');
+      if (!isConflict || attempt === 1) {
+        throw error;
+      }
+    }
+  }
+  return db;
 }
 
 export async function uploadMedia(config: GithubConfig, file: File) {
