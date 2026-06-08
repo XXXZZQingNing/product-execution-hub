@@ -19,12 +19,15 @@
       "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
       "name": "AR软件改进",
       "requirements": "AR资源用户隔离；抠图采用云端；AI模板改回原背景",
-      "referenceImages": [],
+      "referenceImages": [
+        "media/1780885804540--.jpeg",
+        "media/1780885810245--.jpeg"
+      ],
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-08T02:28:56.521Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-08T02:28:57.640Z"
+  "updatedAt": "2026-06-08T02:30:14.422Z"
 }
