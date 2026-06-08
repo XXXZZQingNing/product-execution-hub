@@ -43,8 +43,18 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-08T03:20:20.908Z"
+    },
+    {
+      "id": "4e757d90-aec1-4bbe-9b3f-70297e74f953",
+      "developerId": "ac5ca668-6062-40e3-bf18-0c234feb4208",
+      "name": "AI图生视频（适用于简笔画）",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-08T04:22:30.496Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-08T03:20:22.044Z"
+  "updatedAt": "2026-06-08T04:22:32.243Z"
 }
