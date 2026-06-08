@@ -33,8 +33,18 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-08T03:10:30.016Z"
+    },
+    {
+      "id": "449cd57f-50ff-4cd0-81a5-d87d95a7566f",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "动漫连拍",
+      "requirements": "摄像头权限，开始举手判断，抠图优化",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-08T03:20:20.908Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-08T03:10:31.135Z"
+  "updatedAt": "2026-06-08T03:20:22.044Z"
 }
