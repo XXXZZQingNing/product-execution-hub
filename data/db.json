@@ -38,7 +38,7 @@
       "id": "449cd57f-50ff-4cd0-81a5-d87d95a7566f",
       "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
       "name": "动漫连拍",
-      "requirements": "摄像头权限，开始举手判断，抠图优化",
+      "requirements": "摄像头权限，开始举手判断，抠图优化；滤镜增加；AI图片生成增加；AR化改造",
       "referenceImages": [],
       "referenceLinks": [],
       "hardware": [],
@@ -66,5 +66,5 @@
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-08T14:42:41.451Z"
+  "updatedAt": "2026-06-09T06:37:23.153Z"
 }
