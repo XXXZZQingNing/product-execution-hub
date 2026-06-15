@@ -1,4 +1,6 @@
 import { ArrowLeft, ImagePlus, Pencil, Trash2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Developer, Product, RepoRef } from '../../types';
 import { isVideoPath, resolveMediaUrl, shortName } from '../../lib/utils';
 import { ReferenceLinkList } from './ReferenceLinkList';
@@ -42,8 +44,15 @@ export function ProductDetailPage({
       </div>
 
       <header className="glass-panel rounded-2xl p-6 md:p-8">
-        <p className="text-sm font-bold text-slate-500">所属开发者</p>
-        <p className="mt-1 text-lg font-semibold text-blue-600">{developer?.name ?? '未知开发者'}</p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-slate-500">所属开发者</p>
+            <p className="mt-1 text-lg font-semibold text-blue-600">{developer?.name ?? '未知开发者'}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-sm font-bold ${product.status === 'shipped' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+            {product.status === 'shipped' ? '已上线' : '开发中'}
+          </span>
+        </div>
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">
           {product.name}
         </h2>
@@ -51,9 +60,17 @@ export function ProductDetailPage({
 
       <section className="glass-panel rounded-2xl p-6 md:p-8">
         <h3 className="text-lg font-bold text-slate-900">功能需求描述</h3>
-        <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-slate-600">
-          {product.requirements || '未填写功能需求描述'}
-        </p>
+        {product.requirements ? (
+          <div className="mt-4 prose prose-slate prose-sm sm:prose-base max-w-none prose-a:text-blue-600 hover:prose-a:text-blue-500">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {product.requirements}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <p className="mt-4 text-base leading-relaxed text-slate-500">
+            未填写功能需求描述
+          </p>
+        )}
       </section>
 
       {product.hardware.length > 0 && (

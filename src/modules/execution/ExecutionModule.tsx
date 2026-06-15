@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import type { AppDb, ExecutionPlan, ExecutionTask } from '../../types';
 import type { ConfirmDialogState, PromptDialogState } from '../../types/ui';
-import { statuses } from '../../constants';
+import { statuses, taskPriorities } from '../../constants';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { IconButton } from '../../components/ui/IconButton';
 import { newId, now } from '../../lib/utils';
@@ -275,21 +275,59 @@ export function ExecutionModule({
                         </div>
                       )}
                     </div>
-                    <div className="mt-5 flex flex-wrap gap-2.5">
-                      {statuses.map((status) => (
-                        <button
-                          key={status.key}
+                    <div className="mt-5 flex flex-wrap items-center gap-4 border-b border-slate-100 pb-4">
+                      <div className="flex gap-2.5">
+                        {statuses.map((status) => (
+                          <button
+                            key={status.key}
+                            disabled={!canEdit}
+                            className={`rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200 ${
+                              task.status === status.key
+                                ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            }`}
+                            onClick={() => updateTask({ ...task, status: status.key })}
+                          >
+                            {status.label}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-3 md:ml-auto">
+                        <select
+                          className="field w-auto py-1.5 text-sm bg-slate-50"
+                          value={task.assigneeId || ''}
                           disabled={!canEdit}
-                          className={`rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200 ${
-                            task.status === status.key
-                              ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
-                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                          }`}
-                          onClick={() => updateTask({ ...task, status: status.key })}
+                          onChange={(event) => updateTask({ ...task, assigneeId: event.target.value || undefined })}
                         >
-                          {status.label}
-                        </button>
-                      ))}
+                          <option value="">未指派</option>
+                          {db.developers.map((dev) => (
+                            <option key={dev.id} value={dev.id}>{dev.name}</option>
+                          ))}
+                        </select>
+                        
+                        <select
+                          className={`field w-auto py-1.5 text-sm font-medium ${task.priority ? taskPriorities.find(p => p.key === task.priority)?.colorClass : 'bg-slate-50'}`}
+                          value={task.priority || ''}
+                          disabled={!canEdit}
+                          onChange={(event) => updateTask({ ...task, priority: (event.target.value as any) || undefined })}
+                        >
+                          <option value="">无优先级</option>
+                          {taskPriorities.map((p) => (
+                            <option key={p.key} value={p.key}>{p.label}</option>
+                          ))}
+                        </select>
+                        
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="date"
+                            className={`field w-auto py-1.5 text-sm bg-slate-50 ${task.dueDate && task.dueDate < now().split('T')[0] && task.status !== 'done' ? 'text-rose-600 font-bold border-rose-300' : ''}`}
+                            value={task.dueDate || ''}
+                            disabled={!canEdit}
+                            onChange={(event) => updateTask({ ...task, dueDate: event.target.value || undefined })}
+                          />
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-5">
                       <textarea

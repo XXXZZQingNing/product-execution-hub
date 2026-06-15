@@ -23,6 +23,7 @@ export function ProductModal({
     product
       ? {
           name: product.name,
+          status: product.status,
           requirements: product.requirements,
           referenceImages: product.referenceImages,
           referenceLinks: product.referenceLinks,
@@ -70,6 +71,7 @@ export function ProductModal({
       id: product?.id ?? newId(),
       developerId,
       name: draft.name.trim(),
+      status: draft.status,
       requirements: draft.requirements.trim(),
       referenceImages: draft.referenceImages,
       referenceLinks: draft.referenceLinks,
@@ -83,12 +85,22 @@ export function ProductModal({
       <div className="space-y-6">
         <label className="block">
           <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">产品名称</span>
-          <input
-            className="field text-lg font-bold"
-            value={draft.name}
-            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-            placeholder="输入产品名称..."
-          />
+          <div className="flex gap-2">
+            <input
+              className="field flex-1 text-lg font-bold"
+              value={draft.name}
+              onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+              placeholder="输入产品名称..."
+            />
+            <select
+              className="field w-32"
+              value={draft.status}
+              onChange={(event) => setDraft({ ...draft, status: event.target.value as any })}
+            >
+              <option value="developing">开发中</option>
+              <option value="shipped">已上线</option>
+            </select>
+          </div>
         </label>
         <label className="block">
           <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-slate-500">功能需求描述</span>

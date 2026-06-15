@@ -230,114 +230,137 @@ export function ProductsModule({
             description="产品包含名称、功能需求、参考图、参考链接与硬件设备。"
           />
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2">
-            {products.map((product) => (
-              <article
-                key={product.id}
-                role="button"
-                tabIndex={0}
-                className="glass-panel group flex cursor-pointer flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:ring-1 hover:ring-blue-200"
-                onClick={() => setDetailProductId(product.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setDetailProductId(product.id);
-                  }
-                }}
-              >
-                <div className="relative h-48 bg-slate-100">
-                  {product.referenceImages[0] ? (
-                    isVideoPath(product.referenceImages[0]) ? (
-                      <video
-                        className="h-full w-full object-cover"
-                        src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
-                        muted
-                        onClick={(event) => event.stopPropagation()}
-                      />
-                    ) : (
-                      <img
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
-                        alt={product.name}
-                      />
-                    )
-                  ) : (
-                    <div className="grid h-full place-items-center text-slate-300">
-                      <ImagePlus size={40} strokeWidth={1.5} />
-                    </div>
-                  )}
-                  {product.referenceImages.length > 1 && (
-                    <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                      +{product.referenceImages.length - 1} 张图
-                    </span>
-                  )}
-                  {canEdit && (
-                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <IconButton
-                        label="编辑"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenProductModal({ developerId: selectedDeveloperId, product });
-                        }}
-                      >
-                        <Pencil size={15} />
-                      </IconButton>
-                      <IconButton
-                        label="删除"
-                        danger
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteProduct(product);
-                        }}
-                      >
-                        <Trash2 size={15} />
-                      </IconButton>
-                    </div>
-                  )}
+          <div className="space-y-12">
+            {products.filter(p => p.status === 'developing').length > 0 && (
+              <div>
+                <h4 className="mb-4 text-xl font-bold text-slate-900">进行中</h4>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {products.filter(p => p.status === 'developing').map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
                 </div>
-                <div className="flex flex-1 flex-col p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <h4 className="text-xl font-bold text-slate-900 group-hover:text-blue-700">{product.name}</h4>
-                    <ChevronRight
-                      size={20}
-                      className="shrink-0 text-slate-300 transition-colors group-hover:text-blue-500"
-                    />
-                  </div>
-                  <p className="mt-2.5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
-                    {product.requirements || '未填写功能需求描述'}
-                  </p>
-
-                  {product.hardware.length > 0 && (
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {product.hardware.map((item) => (
-                        <span className="chip" key={item}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {product.referenceLinks.length > 0 && (
-                    <div
-                      className="mt-5 border-t border-slate-100 pt-4"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <ReferenceLinkList
-                        links={product.referenceLinks}
-                        onClickLink={(event) => event.stopPropagation()}
-                      />
-                    </div>
-                  )}
-
-                  <p className="mt-4 text-xs font-semibold text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
-                    点击查看完整产品资料
-                  </p>
+              </div>
+            )}
+            
+            {products.filter(p => p.status === 'shipped').length > 0 && (
+              <div className="opacity-70 grayscale-[0.3]">
+                <h4 className="mb-4 text-xl font-bold text-slate-500">归档 (已上线)</h4>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {products.filter(p => p.status === 'shipped').map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
                 </div>
-              </article>
-            ))}
+              </div>
+            )}
           </div>
         )}
       </section>
     </div>
   );
+
+  function ProductCard({ product }: { product: Product }) {
+    return (
+      <article
+        role="button"
+        tabIndex={0}
+        className="glass-panel group flex cursor-pointer flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:ring-1 hover:ring-blue-200"
+        onClick={() => setDetailProductId(product.id)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setDetailProductId(product.id);
+          }
+        }}
+      >
+        <div className="relative h-48 bg-slate-100">
+          {product.referenceImages[0] ? (
+            isVideoPath(product.referenceImages[0]) ? (
+              <video
+                className="h-full w-full object-cover"
+                src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
+                muted
+                onClick={(event) => event.stopPropagation()}
+              />
+            ) : (
+              <img
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                src={resolveMediaUrl(publicRepo, product.referenceImages[0])}
+                alt={product.name}
+              />
+            )
+          ) : (
+            <div className="grid h-full place-items-center text-slate-300">
+              <ImagePlus size={40} strokeWidth={1.5} />
+            </div>
+          )}
+          {product.referenceImages.length > 1 && (
+            <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+              +{product.referenceImages.length - 1} 张图
+            </span>
+          )}
+          {canEdit && (
+            <div className="absolute top-3 right-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+              <IconButton
+                label="编辑"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenProductModal({ developerId: selectedDeveloperId, product });
+                }}
+              >
+                <Pencil size={15} />
+              </IconButton>
+              <IconButton
+                label="删除"
+                danger
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteProduct(product);
+                }}
+              >
+                <Trash2 size={15} />
+              </IconButton>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-1 flex-col p-6">
+          <div className="flex items-start justify-between gap-3">
+            <h4 className="text-xl font-bold text-slate-900 group-hover:text-blue-700">{product.name}</h4>
+            <ChevronRight
+              size={20}
+              className="shrink-0 text-slate-300 transition-colors group-hover:text-blue-500"
+            />
+          </div>
+          <p className="mt-2.5 line-clamp-3 flex-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">
+            {product.requirements || '未填写功能需求描述'}
+          </p>
+
+          {product.hardware.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {product.hardware.map((item) => (
+                <span className="chip" key={item}>
+                  {item}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {product.referenceLinks.length > 0 && (
+            <div
+              className="mt-5 border-t border-slate-100 pt-4"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <ReferenceLinkList
+                links={product.referenceLinks}
+                onClickLink={(event) => event.stopPropagation()}
+              />
+            </div>
+          )}
+
+          <p className="mt-4 text-xs font-semibold text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
+            点击查看完整产品资料
+          </p>
+        </div>
+      </article>
+    );
+  }
 }

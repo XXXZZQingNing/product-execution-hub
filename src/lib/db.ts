@@ -27,6 +27,9 @@ function normalizeTask(value: unknown): ExecutionTask | null {
     id: asString(value.id) || crypto.randomUUID(),
     title,
     status,
+    assigneeId: asString(value.assigneeId) || undefined,
+    priority: ['high', 'medium', 'low'].includes(value.priority as string) ? (value.priority as import('../types').TaskPriority) : undefined,
+    dueDate: asString(value.dueDate) || undefined,
     feedback: asString(value.feedback),
   };
 }
@@ -49,6 +52,8 @@ function normalizeProduct(value: unknown): Product | null {
   const developerId = asString(value.developerId).trim();
   if (!name || !developerId) return null;
 
+  const status = (value.status === 'shipped' ? 'shipped' : 'developing') as import('../types').ProductStatus;
+
   const referenceLinks = Array.isArray(value.referenceLinks)
     ? value.referenceLinks
         .map((link) => {
@@ -68,6 +73,7 @@ function normalizeProduct(value: unknown): Product | null {
     id: asString(value.id) || crypto.randomUUID(),
     developerId,
     name,
+    status,
     requirements: asString(value.requirements),
     referenceImages: asStringArray(value.referenceImages),
     referenceLinks,

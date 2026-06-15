@@ -43,6 +43,7 @@ export function readStoredToken() {
 
 export const starterProductDraft = () => ({
   name: '',
+  status: 'developing' as import('../types').ProductStatus,
   requirements: '',
   referenceImages: [] as string[],
   referenceLinks: [] as import('../types').ReferenceLink[],

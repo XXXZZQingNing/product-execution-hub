@@ -1,4 +1,6 @@
 export type TaskStatus = 'todo' | 'doing' | 'done';
+export type ProductStatus = 'developing' | 'shipped';
+export type TaskPriority = 'high' | 'medium' | 'low';
 
 export type ReferenceLink = {
   id: string;
@@ -17,6 +19,7 @@ export type Product = {
   id: string;
   developerId: string;
   name: string;
+  status: ProductStatus;
   requirements: string;
   referenceImages: string[];
   referenceLinks: ReferenceLink[];
@@ -28,6 +31,9 @@ export type ExecutionTask = {
   id: string;
   title: string;
   status: TaskStatus;
+  assigneeId?: string;
+  priority?: TaskPriority;
+  dueDate?: string;
   feedback: string;
 };
 
