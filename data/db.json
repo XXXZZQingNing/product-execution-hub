@@ -160,8 +160,19 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-16T07:22:10.345Z"
+    },
+    {
+      "id": "501a99b3-c0bd-43f3-8bad-5af0080d8cae",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "抓抓乐中秋美术资源替换",
+      "status": "developing",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-16T09:38:51.593Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-16T09:31:51.506Z"
+  "updatedAt": "2026-06-16T09:38:52.251Z"
 }
