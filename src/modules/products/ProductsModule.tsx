@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ChevronRight, ImagePlus, PackagePlus, Pencil, Trash2, UserPlus } from 'lucide-react';
-import type { AppDb, Developer, Product, RepoRef } from '../../types';
+import type { AppDb, Developer, Product, ProductStatus, RepoRef } from '../../types';
 import type { ConfirmDialogState, PromptDialogState } from '../../types/ui';
+import { productStatuses } from '../../constants';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { IconButton } from '../../components/ui/IconButton';
 import { isVideoPath, newId, now, resolveMediaUrl } from '../../lib/utils';
@@ -128,6 +129,16 @@ export function ProductsModule({
       onConfirm: () => {
         void onPersist({ ...db, products: db.products.filter((item) => item.id !== product.id) });
       },
+    });
+  }
+
+  function updateProductStatus(product: Product, status: ProductStatus) {
+    if (product.status === status) return;
+    void onPersist({
+      ...db,
+      products: db.products.map((item) =>
+        item.id === product.id ? { ...item, status } : item,
+      ),
     });
   }
 
@@ -356,8 +367,41 @@ export function ProductsModule({
             </div>
           )}
 
-          <p className="mt-4 text-xs font-semibold text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
-            点击查看完整产品资料
+          <p className="mt-4 flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
+              点击查看完整产品资料
+            </span>
+            {canEdit ? (
+              <select
+                className={`field w-auto shrink-0 py-1.5 text-xs font-semibold ${
+                  product.status === 'shipped'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-blue-200 bg-blue-50 text-blue-700'
+                }`}
+                value={product.status}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => {
+                  event.stopPropagation();
+                  updateProductStatus(product, event.target.value as ProductStatus);
+                }}
+              >
+                {productStatuses.map((status) => (
+                  <option key={status.key} value={status.key}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                  product.status === 'shipped'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                {productStatuses.find((item) => item.key === product.status)?.label ?? '开发中'}
+              </span>
+            )}
           </p>
         </div>
       </article>
