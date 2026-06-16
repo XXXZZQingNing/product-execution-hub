@@ -148,8 +148,19 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-16T06:23:58.251Z"
+    },
+    {
+      "id": "379b1d04-b2f9-49a4-944d-3212aee4f035",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "AI光栅画",
+      "status": "developing",
+      "requirements": "1：在管理后台摄像头管理中可以进行以下设置：拍照区域的比例可以在管理后台进行锁定，锁定比例时自动采用视频流能够输出的最高分辨率。开启锁定后前端拍照界面只能采用等比例放大。\n2：AI光栅画模式下，最后的预览图直接采用AI返回的动漫图片就行，和正常模式下的预览界面一样，不需要搞的这么复杂",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-06-16T07:22:10.345Z"
     }
   ],
   "executions": [],
-  "updatedAt": "2026-06-16T06:23:58.907Z"
+  "updatedAt": "2026-06-16T07:22:11.001Z"
 }
