@@ -173,6 +173,14 @@
       "createdAt": "2026-06-16T09:38:51.593Z"
     }
   ],
-  "executions": [],
-  "updatedAt": "2026-06-16T10:04:07.703Z"
+  "executions": [
+    {
+      "id": "f78b285e-9bc7-40b1-8960-7fb8feccb74e",
+      "name": "宣传工具",
+      "plan": "",
+      "tasks": [],
+      "createdAt": "2026-06-16T10:07:30.386Z"
+    }
+  ],
+  "updatedAt": "2026-06-16T10:07:31.044Z"
 }
