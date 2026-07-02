@@ -171,6 +171,17 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-06-16T09:38:51.593Z"
+    },
+    {
+      "id": "66f42fcb-e104-416e-acb1-b758e10829df",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "小程序开发",
+      "status": "developing",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-07-02T04:50:00.252Z"
     }
   ],
   "executions": [
@@ -182,5 +193,5 @@
       "createdAt": "2026-06-16T10:07:30.386Z"
     }
   ],
-  "updatedAt": "2026-06-16T10:09:52.403Z"
+  "updatedAt": "2026-07-02T04:50:00.908Z"
 }
