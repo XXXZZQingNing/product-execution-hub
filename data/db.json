@@ -193,16 +193,27 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-07-02T04:50:26.468Z"
+    },
+    {
+      "id": "0265db97-5148-4221-a08a-177db96e3537",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "自行车3D游戏",
+      "status": "developing",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-07-02T05:14:06.343Z"
     }
   ],
   "executions": [
     {
       "id": "f78b285e-9bc7-40b1-8960-7fb8feccb74e",
       "name": "宣传工具",
-      "plan": "小程序的公安备案。完成小程序的开发，准备好服务号和小程序的资料。网站公安备案完成进行https认证，完成服务器端代码迁移工作。",
+      "plan": "小程序的公安备案。完成小程序的开发，准备好服务号和小程序的资料。",
       "tasks": [],
       "createdAt": "2026-06-16T10:07:30.386Z"
     }
   ],
-  "updatedAt": "2026-07-02T05:10:18.734Z"
+  "updatedAt": "2026-07-02T05:14:07.000Z"
 }
