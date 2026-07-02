@@ -182,6 +182,17 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-07-02T04:50:00.252Z"
+    },
+    {
+      "id": "a6164d20-ef29-44ec-8507-fc7b28148241",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "公众号完善与资料整理",
+      "status": "developing",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-07-02T04:50:26.468Z"
     }
   ],
   "executions": [
@@ -193,5 +204,5 @@
       "createdAt": "2026-06-16T10:07:30.386Z"
     }
   ],
-  "updatedAt": "2026-07-02T04:50:00.908Z"
+  "updatedAt": "2026-07-02T04:50:27.658Z"
 }
