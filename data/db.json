@@ -204,6 +204,17 @@
       "referenceLinks": [],
       "hardware": [],
       "createdAt": "2026-07-02T05:14:06.343Z"
+    },
+    {
+      "id": "3c504684-84d1-4d0c-98f5-c2fbed130495",
+      "developerId": "939d0e98-6cd8-4045-a41e-51944ef7866d",
+      "name": "压感3D跑酷",
+      "status": "developing",
+      "requirements": "",
+      "referenceImages": [],
+      "referenceLinks": [],
+      "hardware": [],
+      "createdAt": "2026-07-02T05:14:31.214Z"
     }
   ],
   "executions": [
@@ -215,5 +226,5 @@
       "createdAt": "2026-06-16T10:07:30.386Z"
     }
   ],
-  "updatedAt": "2026-07-02T05:14:07.000Z"
+  "updatedAt": "2026-07-02T05:14:32.639Z"
 }
